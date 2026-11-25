@@ -25,6 +25,13 @@ const CITIES = {
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
 const publicDir = fileURLToPath(new URL("./public/", import.meta.url));
+const adminToken = process.env.ADMIN_TOKEN;
+const counts = {};
+
+if (!adminToken) {
+  console.error("ADMIN_TOKEN is not set. Copy .env.example to .env.");
+  process.exit(1);
+}
 
 app.use(express.static(publicDir));
 
@@ -39,6 +46,7 @@ app.get("/api/forecast", async (req, res) => {
     return res.status(400).json({ error: `Unknown city: ${cityKey}` });
   }
 
+  counts[cityKey] = (counts[cityKey] ?? 0) + 1;
   const city = CITIES[cityKey];
 
   try {
@@ -47,6 +55,14 @@ app.get("/api/forecast", async (req, res) => {
   } catch (err) {
     res.status(502).json({ error: err.message });
   }
+});
+
+app.get("/api/stats", (req, res) => {
+  if (req.get("Authorization") !== `Bearer ${adminToken}`) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  res.status(200).json(counts);
 });
 
 const server = app.listen(port, (error) => {
